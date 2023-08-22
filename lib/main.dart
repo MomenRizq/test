@@ -1,62 +1,47 @@
 import 'dart:io';
-import 'package:image/image.dart';
-import 'package:path/path.dart' as path;
+import 'dart:convert';
 
-void extractImages(String sourceFolder, String destinationFolder) {
-  if (!Directory(destinationFolder).existsSync()) {
-    Directory(destinationFolder).createSync(recursive: true);
-  }
+void convertTxtToJson(String inputTxtPath, String outputJsonPath) {
+  final txtFile = File(inputTxtPath);
+  final lines = txtFile.readAsLinesSync();
 
-  List<Map<String, dynamic>> imageInfo = [];
+  final jsonList = [];
 
-  final sourceDir = Directory(sourceFolder);
-  _processDirectory(sourceDir, destinationFolder, imageInfo);
+  for (var line in lines) {
+    final parts = line.trim().split(' ');
+    if (parts.length == 5) {
+      final objId = int.parse(parts[0]);
+      final x = double.parse(parts[1]);
+      final y = double.parse(parts[2]);
+      final width = double.parse(parts[3]);
+      final height = double.parse(parts[4]);
 
-  final reportFile = File(path.join(destinationFolder, 'image_report.csv'));
-  reportFile.writeAsStringSync('Image Name,Image Size,Modification Date\n');
-  imageInfo.forEach((info) {
-    reportFile.writeAsStringSync(
-        '${info['Image Name']},${info['Image Size']},${info['Modification Date']}\n',
-        mode: FileMode.append);
-  });
-}
-
-void _processDirectory(
-    Directory sourceDir, String destinationFolder, List<Map<String, dynamic>> imageInfo) {
-  for (var entity in sourceDir.listSync()) {
-    if (entity is File) {
-      if (_isImageFile(entity.path)) {
-        final img = decodeImage(File(entity.path).readAsBytesSync());
-        if (img != null) {
-          final imgName = path.basename(entity.path);
-          final imgSize = entity.lengthSync();
-          final imgModificationDate = entity.lastModifiedSync();
-
-          final destPath = path.join(destinationFolder, imgName);
-          File(destPath).writeAsBytesSync(File(entity.path).readAsBytesSync());
-
-          imageInfo.add({
-            'Image Name': imgName,
-            'Image Size': imgSize,
-            'Modification Date': imgModificationDate.toString(),
-          });
+      final jsonItem = {
+        "image_rotation": 0,
+        "value": {
+          "x": x,
+          "y": y,
+          "width": width,
+          "height": height,
+          "rotation": 0,
+          "rectanglelabels": [objId.toString()]
         }
-      }
-    } else if (entity is Directory) {
-      _processDirectory(
-          entity, destinationFolder, imageInfo);
+      };
+
+      jsonList.add(jsonItem);
     }
   }
-}
 
-bool _isImageFile(String filePath) {
-  final supportedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp'];
-  final extension = path.extension(filePath).toLowerCase();
-  return supportedExtensions.contains(extension);
+  final jsonString = jsonEncode(jsonList);
+  File(outputJsonPath).writeAsStringSync(jsonString, flush: true);
+
+  // Read and print the generated JSON data
+  final generatedJson = File(outputJsonPath).readAsStringSync();
+  print(generatedJson);
 }
 
 void main() {
-  final sourceFolder = 'assets/image';
-  final destinationFolder = 'images_dataset';
-  extractImages(sourceFolder, destinationFolder);
+  final inputTxtPath = 'assets/image1.txt';
+  final outputJsonPath = 'assets/image.json';
+  convertTxtToJson(inputTxtPath, outputJsonPath);
 }
